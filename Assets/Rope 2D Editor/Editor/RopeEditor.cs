@@ -39,8 +39,9 @@ public class RopeEditor : Editor
                 polyLocalMousePos.z = 0;
                 Undo.RecordObject(rope, "Insert Node");
                 rope.nodes.Insert(nodeIndex, polyLocalMousePos);
+                UpdateRope(rope);
                 Event.current.Use();
-            }
+            } 
         }
         if (Event.current.control)
         {
@@ -53,11 +54,11 @@ public class RopeEditor : Editor
                 Undo.RecordObject(rope, "Remove Node");
                 rope.nodes.RemoveAt(indexToDelete);
                 indexToDelete = -1;
+                UpdateRope(rope);
                 Event.current.Use();
             }
             Handles.color = Color.white;
         }
-
     }
     private int FindNearestNodeToMouse(Vector3[] worldNodesPositions)
     {
@@ -123,6 +124,7 @@ public class RopeEditor : Editor
                 CheckAlignment(worldPoints, handleSize * 0.1f, i, ref newPos);
                 Undo.RecordObject(rope, "Move Node");
                 rope.nodes[i] = rope.transform.InverseTransformPoint(newPos);
+                UpdateRope(rope);
             }
         }
     }
@@ -242,5 +244,42 @@ public class RopeEditor : Editor
         GUI.color = Color.red;
         Handles.Label(position, new GUIContent(nodeTexture), handleStyle);
         GUI.color = Color.white;
+    }
+    void UpdateRope(Rope rope)
+    {
+        DestroyChildren(rope);
+        float segmentHeight = rope.chainPart.bounds.size.y*(1+rope.overlapFactor);
+        List<Vector3> nodes = rope.nodes;
+        for (int i = 0; i < nodes.Count - 1; i++)
+        {
+            //construct line between nodes[i] and nodes[i+1]
+            float theta = Mathf.Atan2(nodes[i + 1].y - nodes[i].y, nodes[i + 1].x - nodes[i].x);
+            float dx = segmentHeight * Mathf.Cos(theta);
+            float dy = segmentHeight * Mathf.Sin(theta);
+            float startX = nodes[i].x + dx / 2;
+            float startY = nodes[i].y + dy / 2;
+            float totalLineLength = Vector2.Distance(nodes[i + 1], nodes[i]);
+            int segmentCount = (int)(totalLineLength / segmentHeight);
+            for (int j = 0; j < segmentCount; j++)
+            {
+                GameObject segment = (Instantiate(rope.chainPart) as SpriteRenderer).gameObject;
+                segment.transform.parent = rope.transform;
+                segment.transform.localPosition = new Vector3(startX + dx * j, startY + dy * j);
+                segment.transform.localRotation = Quaternion.Euler(0, 0, theta*Mathf.Rad2Deg-90);
+            }
+        }
+    }
+    private static void DestroyChildren(Rope rope)
+    {
+        while (rope.transform.childCount > 0)
+            DestroyImmediate(rope.transform.GetChild(0).gameObject);
+    }
+    public override void OnInspectorGUI()
+    {
+        base.OnInspectorGUI();
+        if(GUILayout.Button("Bake"))
+        {
+            UpdateRope(target as Rope);
+        }
     }
 }
