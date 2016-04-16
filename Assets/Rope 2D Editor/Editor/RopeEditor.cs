@@ -248,8 +248,16 @@ public class RopeEditor : Editor
     void UpdateRope(Rope rope)
     {
         DestroyChildren(rope);
-        float segmentHeight = rope.chainPart.bounds.size.y*(1+rope.overlapFactor);
+        if(rope.SegmentsPrefabs.Length==0)
+        {
+            Debug.LogWarning("Rope Segments Prefabs is Empty");
+            return;
+        }
+        float segmentHeight = rope.SegmentsPrefabs[0].bounds.size.y*(1+rope.overlapFactor);
         List<Vector3> nodes = rope.nodes;
+        int currentSeg = 0;
+        Rigidbody2D previousSegment=null;
+        float previousTheta = 0;
         for (int i = 0; i < nodes.Count - 1; i++)
         {
             //construct line between nodes[i] and nodes[i+1]
@@ -258,17 +266,63 @@ public class RopeEditor : Editor
             float dy = segmentHeight * Mathf.Sin(theta);
             float startX = nodes[i].x + dx / 2;
             float startY = nodes[i].y + dy / 2;
-            float totalLineLength = Vector2.Distance(nodes[i + 1], nodes[i]);
-            int segmentCount = (int)(totalLineLength / segmentHeight);
+            float lineLength = Vector2.Distance(nodes[i + 1], nodes[i]);
+            int segmentCount = (int)(lineLength / segmentHeight);
             for (int j = 0; j < segmentCount; j++)
             {
-                GameObject segment = (Instantiate(rope.chainPart) as SpriteRenderer).gameObject;
+                if (rope.SegmentsMode == SegmentSelectionMode.RoundRobin)
+                {
+                    currentSeg++;
+                    currentSeg %= rope.SegmentsPrefabs.Length;
+                }
+                else if(rope.SegmentsMode== SegmentSelectionMode.Random)
+                {
+                    currentSeg = Random.Range(0, rope.SegmentsPrefabs.Length);
+                }
+                GameObject segment = (Instantiate(rope.SegmentsPrefabs[currentSeg]) as SpriteRenderer).gameObject;
                 segment.transform.parent = rope.transform;
                 segment.transform.localPosition = new Vector3(startX + dx * j, startY + dy * j);
-                segment.transform.localRotation = Quaternion.Euler(0, 0, theta*Mathf.Rad2Deg-90);
+                segment.transform.localRotation = Quaternion.Euler(0, 0, theta * Mathf.Rad2Deg - 90);
+                if (rope.WithPhysics)
+                {
+                    Rigidbody2D segRigidbody = segment.GetComponent<Rigidbody2D>();
+                    if (segRigidbody == null)
+                        segRigidbody = segment.AddComponent<Rigidbody2D>();
+                    if (j > 0 || i > 0)
+                    {
+                        float dtheta = 0;
+                        if(j==0)
+                        {
+                            //first segment in the line
+                            dtheta = (theta - previousTheta) * Mathf.Rad2Deg;
+                        }
+                        //add Hinge
+                        AddJoint(rope, dtheta, segmentHeight, previousSegment, segment);
+                    }
+                    previousSegment = segRigidbody;
+                }
             }
+            previousTheta = theta;
         }
     }
+
+    private static void AddJoint(Rope rope, float dtheta, float segmentHeight, Rigidbody2D previousSegment, GameObject segment)
+    {
+        HingeJoint2D joint = segment.AddComponent<HingeJoint2D>();
+        joint.connectedBody = previousSegment;
+        joint.anchor = new Vector2(0, -segmentHeight / 2);
+        joint.connectedAnchor = new Vector2(0, segmentHeight / 2);
+        if (rope.useBendLimit)
+        {
+            joint.useLimits = true;
+            joint.limits = new JointAngleLimits2D()
+            {
+                min = dtheta - rope.bendLimit,
+                max = dtheta + rope.bendLimit
+            };
+        }
+    }
+
     private static void DestroyChildren(Rope rope)
     {
         while (rope.transform.childCount > 0)
@@ -277,7 +331,16 @@ public class RopeEditor : Editor
     public override void OnInspectorGUI()
     {
         base.OnInspectorGUI();
-        if(GUILayout.Button("Bake"))
+        Rope rope = target as Rope;
+        if(rope.WithPhysics)
+        {
+            rope.useBendLimit = EditorGUILayout.Toggle("Use Bend Limits",rope.useBendLimit);
+            if(rope.useBendLimit)
+            {
+                rope.bendLimit = EditorGUILayout.IntSlider("Bend Limits",rope.bendLimit, 0, 180);
+            }
+        }
+        if(GUILayout.Button("Update"))
         {
             UpdateRope(target as Rope);
         }
