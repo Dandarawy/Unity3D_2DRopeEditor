@@ -12,6 +12,8 @@ public class Rope : MonoBehaviour {
     [HideInInspector]
     public bool useBendLimit = true;
     [HideInInspector]
+    public bool firstSegmentKinematic = true;
+    [HideInInspector]
     public int bendLimit = 15;
     [Range(-0.5f,0.5f)]
     public float overlapFactor;

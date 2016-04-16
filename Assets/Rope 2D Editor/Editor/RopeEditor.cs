@@ -245,19 +245,20 @@ public class RopeEditor : Editor
         Handles.Label(position, new GUIContent(nodeTexture), handleStyle);
         GUI.color = Color.white;
     }
-    void UpdateRope(Rope rope)
+    static void UpdateRope(Rope rope)
     {
         DestroyChildren(rope);
-        if(rope.SegmentsPrefabs.Length==0)
+        if (rope.SegmentsPrefabs.Length == 0)
         {
             Debug.LogWarning("Rope Segments Prefabs is Empty");
             return;
         }
-        float segmentHeight = rope.SegmentsPrefabs[0].bounds.size.y*(1+rope.overlapFactor);
+        float segmentHeight = rope.SegmentsPrefabs[0].bounds.size.y * (1 + rope.overlapFactor);
         List<Vector3> nodes = rope.nodes;
-        int currentSeg = 0;
-        Rigidbody2D previousSegment=null;
+        int currentSegPrefIndex = 0;
+        Rigidbody2D previousSegment = null;
         float previousTheta = 0;
+        int currentSegment = 0;
         for (int i = 0; i < nodes.Count - 1; i++)
         {
             //construct line between nodes[i] and nodes[i+1]
@@ -272,14 +273,15 @@ public class RopeEditor : Editor
             {
                 if (rope.SegmentsMode == SegmentSelectionMode.RoundRobin)
                 {
-                    currentSeg++;
-                    currentSeg %= rope.SegmentsPrefabs.Length;
+                    currentSegPrefIndex++;
+                    currentSegPrefIndex %= rope.SegmentsPrefabs.Length;
                 }
-                else if(rope.SegmentsMode== SegmentSelectionMode.Random)
+                else if (rope.SegmentsMode == SegmentSelectionMode.Random)
                 {
-                    currentSeg = Random.Range(0, rope.SegmentsPrefabs.Length);
+                    currentSegPrefIndex = Random.Range(0, rope.SegmentsPrefabs.Length);
                 }
-                GameObject segment = (Instantiate(rope.SegmentsPrefabs[currentSeg]) as SpriteRenderer).gameObject;
+                GameObject segment = (Instantiate(rope.SegmentsPrefabs[currentSegPrefIndex]) as SpriteRenderer).gameObject;
+                segment.name = "Segment_" + currentSegment;
                 segment.transform.parent = rope.transform;
                 segment.transform.localPosition = new Vector3(startX + dx * j, startY + dy * j);
                 segment.transform.localRotation = Quaternion.Euler(0, 0, theta * Mathf.Rad2Deg - 90);
@@ -288,10 +290,14 @@ public class RopeEditor : Editor
                     Rigidbody2D segRigidbody = segment.GetComponent<Rigidbody2D>();
                     if (segRigidbody == null)
                         segRigidbody = segment.AddComponent<Rigidbody2D>();
-                    if (j > 0 || i > 0)
+                    //Check if first segment should be kinametic
+                    if (currentSegment == 0 && rope.firstSegmentKinematic)
+                        segRigidbody.isKinematic = true;
+                    //if not the first segment, make a joint
+                    if (currentSegment != 0)
                     {
                         float dtheta = 0;
-                        if(j==0)
+                        if (j == 0)
                         {
                             //first segment in the line
                             dtheta = (theta - previousTheta) * Mathf.Rad2Deg;
@@ -301,11 +307,11 @@ public class RopeEditor : Editor
                     }
                     previousSegment = segRigidbody;
                 }
+                currentSegment++;
             }
             previousTheta = theta;
         }
     }
-
     private static void AddJoint(Rope rope, float dtheta, float segmentHeight, Rigidbody2D previousSegment, GameObject segment)
     {
         HingeJoint2D joint = segment.AddComponent<HingeJoint2D>();
@@ -322,7 +328,6 @@ public class RopeEditor : Editor
             };
         }
     }
-
     private static void DestroyChildren(Rope rope)
     {
         while (rope.transform.childCount > 0)
@@ -335,6 +340,7 @@ public class RopeEditor : Editor
         if(rope.WithPhysics)
         {
             rope.useBendLimit = EditorGUILayout.Toggle("Use Bend Limits",rope.useBendLimit);
+            rope.firstSegmentKinematic = EditorGUILayout.Toggle("First Segment Kinematic", rope.firstSegmentKinematic);
             if(rope.useBendLimit)
             {
                 rope.bendLimit = EditorGUILayout.IntSlider("Bend Limits",rope.bendLimit, 0, 180);
