@@ -18,9 +18,16 @@ public class Rope : MonoBehaviour {
     [HideInInspector]
     public bool useBendLimit = true;
     [HideInInspector]
-    public bool firstSegmentKinematic = true;
-    [HideInInspector]
     public int bendLimit = 15;
+    [HideInInspector]
+    public bool HangFirstSegment = true;
+    [HideInInspector]
+    public Vector2 FirstSegmentConnectionAnchor;
+    [HideInInspector]
+    public Vector2 LastSegmentConnectionAnchor;
+    [HideInInspector]
+    public bool HangLastSegment = false;
+
 #if UNITY_5
     [HideInInspector]
     public bool BreakableJoints=false;
