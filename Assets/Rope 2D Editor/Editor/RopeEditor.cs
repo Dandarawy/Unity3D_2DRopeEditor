@@ -268,7 +268,19 @@ public class RopeEditor : Editor
             float startX = nodes[i].x + dx / 2;
             float startY = nodes[i].y + dy / 2;
             float lineLength = Vector2.Distance(nodes[i + 1], nodes[i]);
-            int segmentCount = (int)(lineLength / segmentHeight);
+            int segmentCount = 0;
+            switch(rope.OverflowMode)
+            {
+                case LineOverflowMode.Round:
+                    segmentCount = Mathf.RoundToInt(lineLength / segmentHeight);
+                    break;
+                case LineOverflowMode.Shrink:
+                    segmentCount = (int)(lineLength / segmentHeight);
+                    break;
+                case LineOverflowMode.Extend:
+                    segmentCount = Mathf.CeilToInt(lineLength / segmentHeight);
+                    break;
+            }
             for (int j = 0; j < segmentCount; j++)
             {
                 if (rope.SegmentsMode == SegmentSelectionMode.RoundRobin)
@@ -327,6 +339,13 @@ public class RopeEditor : Editor
                 max = dtheta + rope.bendLimit
             };
         }
+       
+#if UNITY_5
+         if (rope.BreakableJoints)
+            joint.breakForce = rope.BreakForce;
+        else
+            joint.breakForce = Mathf.Infinity;
+#endif
     }
     private static void DestroyChildren(Rope rope)
     {
@@ -339,12 +358,20 @@ public class RopeEditor : Editor
         Rope rope = target as Rope;
         if(rope.WithPhysics)
         {
-            rope.useBendLimit = EditorGUILayout.Toggle("Use Bend Limits",rope.useBendLimit);
             rope.firstSegmentKinematic = EditorGUILayout.Toggle("First Segment Kinematic", rope.firstSegmentKinematic);
+            rope.useBendLimit = EditorGUILayout.Toggle("Use Bend Limits", rope.useBendLimit);
             if(rope.useBendLimit)
             {
                 rope.bendLimit = EditorGUILayout.IntSlider("Bend Limits",rope.bendLimit, 0, 180);
             }
+#if UNITY_5
+            rope.BreakableJoints = EditorGUILayout.Toggle("Breakable Joints", rope.BreakableJoints);
+            if(rope.BreakableJoints)
+            {
+                rope.BreakForce = EditorGUILayout.FloatField("Break Force", rope.BreakForce);
+
+            }
+#endif
         }
         if(GUILayout.Button("Update"))
         {
