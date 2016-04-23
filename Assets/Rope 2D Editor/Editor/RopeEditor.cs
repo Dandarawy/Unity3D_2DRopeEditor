@@ -9,6 +9,8 @@ public class RopeEditor : Editor
     static GUIStyle handleStyle = new GUIStyle();
     static GUIStyle dothandleStyle = new GUIStyle();
     List<int> alignedPoints=new List<int>();
+
+    Vector3 ropePosition;
     void OnEnable()
     {
         nodeTexture = Resources.Load<Texture>("Handle");
@@ -21,6 +23,7 @@ public class RopeEditor : Editor
         dothandleStyle.alignment = TextAnchor.MiddleCenter;
         dothandleStyle.fixedWidth = 8;
         dothandleStyle.fixedHeight = 8;
+        ropePosition = (target as Rope).transform.position;
     }
     void OnSceneGUI()
     {
@@ -31,37 +34,8 @@ public class RopeEditor : Editor
             worldPoints[i] = rope.transform.TransformPoint(localPoints[i]);
         DrawPolyLine(worldPoints);
         DrawNodes(rope, worldPoints);
-        if(rope.WithPhysics&& rope.HangFirstSegment)
-        {
-            //Draw Hinge 
-            Transform firstSegment = rope.transform.GetChild(0);
-            float handleSize = HandleUtility.GetHandleSize(firstSegment.position);
-            GUI.color = Color.blue;
-            Vector2 newFirstSegmentAnchor = Handles.FreeMoveHandle(rope.FirstSegmentConnectionAnchor,
-                Quaternion.identity, handleSize * 0.05f, Vector3.one, SolidHandleFunc);
-            if (newFirstSegmentAnchor != rope.FirstSegmentConnectionAnchor)
-            {
-                rope.FirstSegmentConnectionAnchor = newFirstSegmentAnchor;
-                UpdateEndsJoints(rope);
-            }
-            GUI.color = Color.white;
-        }
-        if (rope.WithPhysics && rope.HangLastSegment)
-        {
-            //Draw Hinge 
-            Transform lastSegment = rope.transform.GetChild(rope.transform.childCount - 1);
-            float handleSize = HandleUtility.GetHandleSize(lastSegment.position);
-            GUI.color = Color.blue;
-
-            Vector2 newLastSegmentAnchor = Handles.FreeMoveHandle(rope.LastSegmentConnectionAnchor,
-            Quaternion.identity, handleSize * 0.05f, Vector3.one, SolidHandleFunc);
-            GUI.color = Color.white;
-            if (newLastSegmentAnchor != rope.LastSegmentConnectionAnchor)
-            {
-                rope.LastSegmentConnectionAnchor = newLastSegmentAnchor;
-                UpdateEndsJoints(rope);
-            }
-        }
+        DrawHinges(rope);
+        
         if (Event.current.shift)
         {
             //Adding Points
@@ -81,7 +55,7 @@ public class RopeEditor : Editor
                 Event.current.Use();
             } 
         }
-        if (Event.current.control)
+        if (Event.current.control && rope.nodes.Count > 2)
         {
             //Deleting Points
             int indexToDelete = FindNearestNodeToMouse(worldPoints);
@@ -97,6 +71,66 @@ public class RopeEditor : Editor
             }
             Handles.color = Color.white;
         }
+        if(ropePosition!=rope.transform.position)
+        {
+            ropePosition = rope.transform.position;
+            UpdateEndsJoints(rope);
+        }
+    }
+
+    private void DrawHinges(Rope rope)
+    {
+        if (rope.WithPhysics && rope.HangFirstSegment)
+        {
+            //Draw Hinge 
+            Transform firstSegment = rope.transform.GetChild(0);
+            float handleSize = HandleUtility.GetHandleSize(firstSegment.position);
+            Vector2 hingePositionInWorldSpace = rope.transform.TransformPoint(rope.FirstSegmentConnectionAnchor);
+            if (GetConnectedObject(hingePositionInWorldSpace, firstSegment.GetComponent<Rigidbody2D>()))
+                GUI.color = Color.magenta;
+            else
+                GUI.color = Color.blue;
+            Vector2 newFirstSegmentAnchor = Handles.FreeMoveHandle(hingePositionInWorldSpace,
+                Quaternion.identity, handleSize * 0.05f, Vector3.one, SolidHandleFunc);
+            if (newFirstSegmentAnchor != hingePositionInWorldSpace)
+            {
+                rope.FirstSegmentConnectionAnchor = rope.transform.InverseTransformPoint(newFirstSegmentAnchor);
+                UpdateEndsJoints(rope);
+            }
+            GUI.color = Color.white;
+        }
+
+        if (rope.WithPhysics && rope.HangLastSegment)
+        {
+            //Draw Hinge 
+            Transform lastSegment = rope.transform.GetChild(rope.transform.childCount - 1);
+            float handleSize = HandleUtility.GetHandleSize(lastSegment.position);
+            Vector2 hingePositionInWorldSpace = rope.transform.TransformPoint(rope.LastSegmentConnectionAnchor);
+            if (GetConnectedObject(hingePositionInWorldSpace, lastSegment.GetComponent<Rigidbody2D>()))
+                GUI.color = Color.magenta;
+            else
+                GUI.color = Color.blue;
+            Vector2 newLastSegmentAnchor = Handles.FreeMoveHandle(hingePositionInWorldSpace,
+            Quaternion.identity, handleSize * 0.05f, Vector3.one, SolidHandleFunc);
+            GUI.color = Color.white;
+            if (newLastSegmentAnchor != hingePositionInWorldSpace)
+            {
+                rope.LastSegmentConnectionAnchor = rope.transform.InverseTransformPoint(newLastSegmentAnchor);
+                UpdateEndsJoints(rope);
+            }
+        }
+    }
+    static Rigidbody2D GetConnectedObject(Vector2 position, Rigidbody2D originalObj)
+    {
+        Rigidbody2D[] sceneRigidbodies = GameObject.FindObjectsOfType<Rigidbody2D>();
+        for(int i=0;i<sceneRigidbodies.Length;i++)
+        {
+            if(originalObj!=sceneRigidbodies[i]&& sceneRigidbodies[i].renderer.bounds.Contains(position))
+            {
+                return sceneRigidbodies[i];
+            }
+        }
+        return null;
     }
     private int FindNearestNodeToMouse(Vector3[] worldNodesPositions)
     {
@@ -373,8 +407,14 @@ public class RopeEditor : Editor
             HingeJoint2D joint = firstSegment.gameObject.GetComponent<HingeJoint2D>();
             if(!joint)
                 joint = firstSegment.gameObject.AddComponent<HingeJoint2D>();
-            joint.connectedAnchor = rope.FirstSegmentConnectionAnchor;
-            joint.anchor = firstSegment.transform.InverseTransformPoint(rope.FirstSegmentConnectionAnchor);
+            Vector2 hingePositionInWorldSpace = rope.transform.TransformPoint(rope.FirstSegmentConnectionAnchor);
+            joint.connectedAnchor = hingePositionInWorldSpace;
+            joint.anchor = firstSegment.transform.InverseTransformPoint(hingePositionInWorldSpace);
+            joint.connectedBody = GetConnectedObject(hingePositionInWorldSpace, firstSegment.GetComponent<Rigidbody2D>());
+            if(joint.connectedBody)
+            {
+                joint.connectedAnchor = joint.connectedBody.transform.InverseTransformPoint(hingePositionInWorldSpace);
+            }
         }
         else
         {
@@ -390,8 +430,14 @@ public class RopeEditor : Editor
                 joint = joints[1];
             else
                 joint = lastSegment.gameObject.AddComponent<HingeJoint2D>();
-            joint.connectedAnchor = rope.LastSegmentConnectionAnchor;
-            joint.anchor = lastSegment.transform.InverseTransformPoint(rope.LastSegmentConnectionAnchor);
+            Vector2 hingePositionInWorldSpace = rope.transform.TransformPoint(rope.LastSegmentConnectionAnchor);
+            joint.connectedAnchor = hingePositionInWorldSpace;
+            joint.anchor = lastSegment.transform.InverseTransformPoint(hingePositionInWorldSpace) ;
+            joint.connectedBody = GetConnectedObject(hingePositionInWorldSpace, lastSegment.GetComponent<Rigidbody2D>());
+            if (joint.connectedBody)
+            {
+                joint.connectedAnchor = joint.connectedBody.transform.InverseTransformPoint(hingePositionInWorldSpace);
+            }
         }
         else
         {
@@ -439,6 +485,10 @@ public class RopeEditor : Editor
             if (hangFirstSegment != rope.HangFirstSegment)
             {
                 rope.HangFirstSegment = hangFirstSegment;
+                if(hangFirstSegment)
+                {
+                    rope.FirstSegmentConnectionAnchor = rope.nodes[0];
+                }
                 UpdateEndsJoints(rope);
                 SceneView.RepaintAll();
             }
@@ -446,13 +496,27 @@ public class RopeEditor : Editor
             if (hangLastSegment != rope.HangLastSegment)
             {
                 rope.HangLastSegment = hangLastSegment;
+                if(hangLastSegment)
+                {
+                    rope.LastSegmentConnectionAnchor = rope.nodes[rope.nodes.Count - 1];
+                }
                 UpdateEndsJoints(rope);
                 SceneView.RepaintAll();
             }
-            rope.useBendLimit = EditorGUILayout.Toggle("Use Bend Limits", rope.useBendLimit);
+            bool useBendLimit = EditorGUILayout.Toggle("Use Bend Limits", rope.useBendLimit);
+            if (useBendLimit != rope.useBendLimit)
+            {
+                rope.useBendLimit = useBendLimit;
+                UpdateRope(rope);
+            }
             if(rope.useBendLimit)
             {
-                rope.bendLimit = EditorGUILayout.IntSlider("Bend Limits",rope.bendLimit, 0, 180);
+                int bendLimit = EditorGUILayout.IntSlider("Bend Limits",rope.bendLimit, 0, 180);
+                if(bendLimit!=rope.bendLimit)
+                {
+                    rope.bendLimit = bendLimit;
+                    UpdateRope(rope);
+                }
             }
 #if UNITY_5
             rope.BreakableJoints = EditorGUILayout.Toggle("Breakable Joints", rope.BreakableJoints);
@@ -465,7 +529,8 @@ public class RopeEditor : Editor
         }
         if(GUILayout.Button("Update"))
         {
-            UpdateRope(target as Rope);
+            UpdateRope(rope);
         }
     }
+    
 }
