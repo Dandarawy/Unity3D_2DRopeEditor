@@ -386,6 +386,8 @@ public class RopeEditor : Editor
                         {
                             //first segment in the line
                             dtheta = (theta - previousTheta) * Mathf.Rad2Deg;
+                            if (dtheta > 180) dtheta -= 360;
+                            else if (dtheta < -180) dtheta += 360;
                         }
                         //add Hinge
                         AddJoint(rope, dtheta, segmentHeight, previousSegment, segment);
