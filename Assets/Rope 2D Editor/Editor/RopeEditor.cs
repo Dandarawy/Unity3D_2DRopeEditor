@@ -80,7 +80,9 @@ public class RopeEditor : Editor
 
     private void DrawHinges(Rope rope)
     {
-        if (rope.WithPhysics && rope.HangFirstSegment)
+        if (rope.WithPhysics &&
+            rope.HangFirstSegment &&
+            rope.transform.childCount > 0)
         {
             //Draw Hinge 
             Transform firstSegment = rope.transform.GetChild(0);
@@ -324,7 +326,7 @@ public class RopeEditor : Editor
     static void UpdateRope(Rope rope)
     {
         DestroyChildren(rope);
-        if (rope.SegmentsPrefabs.Length == 0)
+        if (rope.SegmentsPrefabs==null||rope.SegmentsPrefabs.Length == 0)
         {
             Debug.LogWarning("Rope Segments Prefabs is Empty");
             return;
@@ -403,7 +405,9 @@ public class RopeEditor : Editor
     private static void UpdateEndsJoints(Rope rope)
     {
         Transform firstSegment = rope.transform.GetChild(0);
-        if (rope.WithPhysics&& rope.HangFirstSegment)
+        if (rope.WithPhysics&& 
+            rope.HangFirstSegment&&
+            rope.transform.childCount>0)
         {
 
             HingeJoint2D joint = firstSegment.gameObject.GetComponent<HingeJoint2D>();
@@ -535,4 +539,14 @@ public class RopeEditor : Editor
         }
     }
     
+    [MenuItem("GameObject/Rope",false,1)]
+    public static void CreateRope()
+    {
+        GameObject g = new GameObject();
+        g.AddComponent<Rope>();
+        Camera sceneCamera = SceneView.currentDrawingSceneView.camera;
+        Vector3 position= sceneCamera.ViewportToWorldPoint(new Vector3(0.5f, 0.5f, 10));
+        g.transform.position = new Vector3(position.x, position.y, 0);
+        Selection.activeGameObject = g;
+    }
 }
