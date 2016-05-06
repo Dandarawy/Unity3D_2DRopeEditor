@@ -543,6 +543,7 @@ public class RopeEditor : Editor
     public static void CreateRope()
     {
         GameObject g = new GameObject();
+        g.name = "Rope";
         g.AddComponent<Rope>();
         Camera sceneCamera = SceneView.currentDrawingSceneView.camera;
         Vector3 position= sceneCamera.ViewportToWorldPoint(new Vector3(0.5f, 0.5f, 10));

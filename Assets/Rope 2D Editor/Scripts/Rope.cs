@@ -20,7 +20,7 @@ public class Rope : MonoBehaviour {
     [HideInInspector]
     public int bendLimit = 45;
     [HideInInspector]
-    public bool HangFirstSegment = true;
+    public bool HangFirstSegment = false;
     [HideInInspector]
     public Vector2 FirstSegmentConnectionAnchor;
     [HideInInspector]
