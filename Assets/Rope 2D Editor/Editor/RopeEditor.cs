@@ -127,7 +127,7 @@ public class RopeEditor : Editor
         Rigidbody2D[] sceneRigidbodies = GameObject.FindObjectsOfType<Rigidbody2D>();
         for(int i=0;i<sceneRigidbodies.Length;i++)
         {
-            if(originalObj!=sceneRigidbodies[i]&& sceneRigidbodies[i].renderer.bounds.Contains(position))
+            if(originalObj!=sceneRigidbodies[i]&& sceneRigidbodies[i].GetComponent<SpriteRenderer>().bounds.Contains(position))
             {
                 return sceneRigidbodies[i];
             }
@@ -472,8 +472,6 @@ public class RopeEditor : Editor
 #if UNITY_5
          if (rope.BreakableJoints)
             joint.breakForce = rope.BreakForce;
-        else
-            joint.breakForce = Mathf.Infinity;
 #endif
     }
     private static void DestroyChildren(Rope rope)
@@ -545,8 +543,7 @@ public class RopeEditor : Editor
         GameObject g = new GameObject();
         g.name = "Rope";
         g.AddComponent<Rope>();
-        Camera sceneCamera = SceneView.currentDrawingSceneView.camera;
-        Vector3 position= sceneCamera.ViewportToWorldPoint(new Vector3(0.5f, 0.5f, 10));
+        Vector3 position= SceneView.lastActiveSceneView.camera.ViewportPointToRay(new Vector3(0.5f, 0.5f, 1.0f)).origin;
         g.transform.position = new Vector3(position.x, position.y, 0);
         Selection.activeGameObject = g;
     }
