@@ -1,5 +1,9 @@
 # Unity3D 2D Rope Editor
 
+## No Longer Supported :(
+- This Repo isn't supported anymore and will not receive any updates. You get the latest updated package from the [Asset Store](	http://u3d.as/t47).
+
+
 Easy to use and powerfull 2d rope editor for unity based on  this [polyline editor](https://github.com/Dandarawy/Unity3DPolylineEditor)
 
 <p align="center">
